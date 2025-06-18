@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Position Size Calculator</title>
   <style>
     body {
@@ -109,47 +109,63 @@
     <div class="output" id="result" style="display:none;">
       <p id="units"></p>
       <p id="usdt"></p>
+      <p id="slAmount"></p>
+      <p id="tp1"></p>
+      <p id="tp2"></p>
     </div>
   </div>
 
   <script>
     function calculate() {
-      // read & parse
+      // 1) grab & parse
       const balance    = parseFloat(document.getElementById('balance').value);
-      const riskPct    = parseFloat(document.getElementById('riskPercent').value) / 100;
+      const riskPct    = parseFloat(document.getElementById('riskPercent').value)/100;
       const stopPrice  = parseFloat(document.getElementById('stopLoss').value);
       const entryPrice = parseFloat(document.getElementById('entryPrice').value);
       const lev        = parseFloat(document.getElementById('leverage').value);
 
-      // validate
+      // 2) validate
       if (
         isNaN(balance)    ||
         isNaN(riskPct)    ||
         isNaN(stopPrice) ||
-        isNaN(entryPrice)  ||
-        entryPrice === stopPrice
+        isNaN(entryPrice) ||
+        stopPrice === entryPrice
       ) {
-        alert('Please enter valid values for balance, risk %, entry & stop.');
+        alert('Please enter valid numbers for balance, risk %, entry & stop.');
         return;
       }
 
-      // how much $ we're risking
-      const riskAmount = balance * riskPct;
+      // 3) how much USD are we willing to lose (base risk)
+      const baseRisk = balance * riskPct;
 
-      // per-unit price difference
+      // 4) per-unit pip difference
       const diff = Math.abs(entryPrice - stopPrice);
 
-      // raw units, scaled by leverage
-      const units = (riskAmount / diff) * lev;
+      // 5) raw units, scaled by leverage
+      const units = (baseRisk / diff) * lev;
 
-      // notional (USDT) = units * entry price
-      const positionUSDT = units * entryPrice;
+      // 6) total notional USDT size = units × entry
+      const posSizeUSDT = units * entryPrice;
 
-      // show
-      document.getElementById('units').textContent = 
-        `Units: ${units.toFixed(4)}`;
-      document.getElementById('usdt').textContent = 
-        `Position Size: ${positionUSDT.toFixed(2)} USDT`;
+      // 7) actual USD at risk if SL hits = baseRisk × leverage  
+      //    (i.e. units × diff)
+      const actualRiskUSDT = baseRisk * lev;
+
+      // 8) two TP price-levels at ±1.5% & ±3%
+      //    detect long vs short by whether SL < entry
+      const isLong = stopPrice < entryPrice;
+      const sign   = isLong ? 1 : -1;
+      const tp1Price = entryPrice + sign * entryPrice * 0.015;
+      const tp2Price = entryPrice + sign * entryPrice * 0.03;
+
+      // 9) render
+      document.getElementById('units').textContent   = `Units: ${units.toFixed(4)}`;
+      document.getElementById('usdt').textContent    = `Position Size: ${posSizeUSDT.toFixed(2)} USDT`;
+      document.getElementById('slAmount').textContent = `At-Risk (if SL hits): ${actualRiskUSDT.toFixed(2)} USDT`;
+      document.getElementById('tp1').textContent     = `TP₁ (${(isLong?'+':'')+ (1.5)+'%'}): ${tp1Price.toFixed(6)}`;
+      document.getElementById('tp2').textContent     = `TP₂ (${(isLong?'+':'')+ (3)+'%'}): ${tp2Price.toFixed(6)}`;
+
       document.getElementById('result').style.display = 'block';
     }
   </script>
