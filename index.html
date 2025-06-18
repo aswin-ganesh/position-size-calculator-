@@ -77,23 +77,23 @@
     </div>
 
     <div class="form-group">
-      <label for="riskPercent">Risk Per Trade (%)</label>
-      <input id="riskPercent" type="number" step="any" value="1.5" />
+      <label for="riskPct">Risk Per Trade (%)</label>
+      <input id="riskPct" type="number" step="any" value="1" />
     </div>
 
     <div class="form-group">
-      <label for="stopLoss">Stop Loss (Price)</label>
-      <input id="stopLoss" type="number" step="any" placeholder="e.g. 0.618" />
+      <label for="entry">Entry Price</label>
+      <input id="entry" type="number" step="any" placeholder="e.g. 0.612" />
     </div>
 
     <div class="form-group">
-      <label for="entryPrice">Entry Price</label>
-      <input id="entryPrice" type="number" step="any" placeholder="e.g. 0.612" />
+      <label for="stop">Stop Loss (Price)</label>
+      <input id="stop" type="number" step="any" placeholder="e.g. 0.618" />
     </div>
 
     <div class="form-group">
-      <label for="leverage">Leverage (x)</label>
-      <select id="leverage">
+      <label for="lev">Leverage (x)</label>
+      <select id="lev">
         <option>1</option>
         <option>2</option>
         <option>5</option>
@@ -108,8 +108,8 @@
 
     <div class="output" id="result" style="display:none;">
       <p id="units"></p>
-      <p id="usdt"></p>
-      <p id="slAmount"></p>
+      <p id="notional"></p>
+      <p id="atRisk"></p>
       <p id="tp1"></p>
       <p id="tp2"></p>
     </div>
@@ -117,55 +117,41 @@
 
   <script>
     function calculate() {
-      // 1) grab & parse
-      const balance    = parseFloat(document.getElementById('balance').value);
-      const riskPct    = parseFloat(document.getElementById('riskPercent').value)/100;
-      const stopPrice  = parseFloat(document.getElementById('stopLoss').value);
-      const entryPrice = parseFloat(document.getElementById('entryPrice').value);
-      const lev        = parseFloat(document.getElementById('leverage').value);
+      // read & parse
+      const balance   = parseFloat(document.getElementById('balance').value);
+      const riskPct   = parseFloat(document.getElementById('riskPct').value) / 100;
+      const entry     = parseFloat(document.getElementById('entry').value);
+      const stop      = parseFloat(document.getElementById('stop').value);
+      const lev       = parseFloat(document.getElementById('lev').value);
 
-      // 2) validate
-      if (
-        isNaN(balance)    ||
-        isNaN(riskPct)    ||
-        isNaN(stopPrice) ||
-        isNaN(entryPrice) ||
-        stopPrice === entryPrice
-      ) {
-        alert('Please enter valid numbers for balance, risk %, entry & stop.');
+      // basic validation
+      if ([balance, riskPct, entry, stop, lev].some(v=>isNaN(v)) || entry === stop) {
+        alert('Please enter valid numbers for all fields, and ensure entry ≠ stop.');
         return;
       }
 
-      // 3) how much USD are we willing to lose (base risk)
-      const baseRisk = balance * riskPct;
+      // how much of YOUR CAPITAL you're risking
+      const riskAmount = balance * riskPct;
 
-      // 4) per-unit pip difference
-      const diff = Math.abs(entryPrice - stopPrice);
+      // price move per unit
+      const diff = Math.abs(entry - stop);
 
-      // 5) raw units, scaled by leverage
-      const units = (baseRisk / diff) * lev;
+      // contracts/contracts units = (riskAmount / diff) * leverage
+      const units = (riskAmount / diff) * lev;
 
-      // 6) total notional USDT size = units × entry
-      const posSizeUSDT = units * entryPrice;
+      // notional position size in USDT
+      const notional = units * entry;
 
-      // 7) actual USD at risk if SL hits = baseRisk × leverage  
-      //    (i.e. units × diff)
-      const actualRiskUSDT = baseRisk * lev;
+      // take-profit levels from entry
+      const tp1price = entry * (1 - 0.015);  // 1.5% move
+      const tp2price = entry * (1 - 0.03);   // 3% move
 
-      // 8) two TP price-levels at ±1.5% & ±3%
-      //    detect long vs short by whether SL < entry
-      const isLong = stopPrice < entryPrice;
-      const sign   = isLong ? 1 : -1;
-      const tp1Price = entryPrice + sign * entryPrice * 0.015;
-      const tp2Price = entryPrice + sign * entryPrice * 0.03;
-
-      // 9) render
+      // render
       document.getElementById('units').textContent   = `Units: ${units.toFixed(4)}`;
-      document.getElementById('usdt').textContent    = `Position Size: ${posSizeUSDT.toFixed(2)} USDT`;
-      document.getElementById('slAmount').textContent = `At-Risk (if SL hits): ${actualRiskUSDT.toFixed(2)} USDT`;
-      document.getElementById('tp1').textContent     = `TP₁ (${(isLong?'+':'')+ (1.5)+'%'}): ${tp1Price.toFixed(6)}`;
-      document.getElementById('tp2').textContent     = `TP₂ (${(isLong?'+':'')+ (3)+'%'}): ${tp2Price.toFixed(6)}`;
-
+      document.getElementById('notional').textContent = `Position Size: ${notional.toFixed(2)} USDT`;
+      document.getElementById('atRisk').textContent   = `At-Risk (if SL hits): ${riskAmount.toFixed(2)} USDT`;
+      document.getElementById('tp1').textContent      = `TP₁ (1.5%): ${tp1price.toFixed(6)}`;
+      document.getElementById('tp2').textContent      = `TP₂ (3%): ${tp2price.toFixed(6)}`;
       document.getElementById('result').style.display = 'block';
     }
   </script>
