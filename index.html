@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Position Size Calculator</title>
   <style>
     body {
@@ -19,14 +19,14 @@
       background: #fff;
       padding: 2rem;
       border-radius: 8px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-      width: 320px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      width: 360px;
     }
     h1 {
-      margin-bottom: 1rem;
-      font-size: 1.5rem;
       text-align: center;
       color: #1a73e8;
+      margin-bottom: 1.5rem;
+      font-size: 1.75rem;
     }
     .form-group {
       margin-bottom: 1rem;
@@ -35,10 +35,11 @@
       display: block;
       margin-bottom: 0.5rem;
       font-weight: 600;
+      font-size: 0.95rem;
     }
     input, select, button {
       width: 100%;
-      padding: 0.5rem;
+      padding: 0.6rem;
       border: 1px solid #ccd0d5;
       border-radius: 4px;
       font-size: 1rem;
@@ -49,8 +50,10 @@
       color: #fff;
       border: none;
       cursor: pointer;
-      transition: background 0.3s ease;
+      font-size: 1rem;
+      font-weight: 600;
       margin-top: 0.5rem;
+      transition: background 0.3s ease;
     }
     button:hover {
       background: #1668c1;
@@ -59,91 +62,93 @@
       background: #eef3fc;
       padding: 1rem;
       border-radius: 4px;
-      margin-top: 1rem;
-      text-align: left;
+      margin-top: 1.5rem;
       font-size: 0.95rem;
+      line-height: 1.4;
     }
     .output p {
       margin: 0.4rem 0;
-      font-weight: 600;
+    }
+    .output strong {
+      display: inline-block;
+      width: 140px;
     }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Position Calculator</h1>
-
     <div class="form-group">
-      <label for="balance">Account Balance (USD)</label>
-      <input id="balance" type="number" step="any" value="700">
+      <label for="balance">Account Balance (&dollar;)</label>
+      <input id="balance" type="number" step="any" placeholder="e.g. 600" />
     </div>
-
     <div class="form-group">
       <label for="riskPct">Risk per Trade (%)</label>
-      <input id="riskPct" type="number" step="any" value="1">
+      <input id="riskPct" type="number" step="any" placeholder="e.g. 1" />
     </div>
-
     <div class="form-group">
       <label for="entry">Entry Price</label>
-      <input id="entry" type="number" step="any" placeholder="e.g. 0.612">
+      <input id="entry" type="number" step="any" placeholder="e.g. 2.1535" />
     </div>
-
     <div class="form-group">
       <label for="stop">Stop-Loss Price</label>
-      <input id="stop" type="number" step="any" placeholder="e.g. 0.618">
+      <input id="stop" type="number" step="any" placeholder="e.g. 2.1565" />
     </div>
-
+    <div class="form-group">
+      <label for="commissionPct">Commission per side (%)</label>
+      <input id="commissionPct" type="number" step="any" value="0.05" />
+    </div>
     <button onclick="calculate()">Calculate</button>
-
-    <div class="output" id="result" style="display:none;">
-      <p id="atRisk"></p>
-      <p id="units"></p>
-      <p id="notional"></p>
-      <p id="commission"></p>
-      <p id="totalRisk"></p>
-    </div>
+    <div class="output" id="result" style="display:none;"></div>
   </div>
-
   <script>
-    function calculate(){
-      // grab & parse
-      const bal   = parseFloat(document.getElementById('balance').value);
-      const pct   = parseFloat(document.getElementById('riskPct').value)/100;
+    function calculate() {
+      // Read inputs
+      const bal = parseFloat(document.getElementById('balance').value);
+      const riskPct = parseFloat(document.getElementById('riskPct').value) / 100;
       const entry = parseFloat(document.getElementById('entry').value);
-      const stop  = parseFloat(document.getElementById('stop').value);
-
-      // validation
-      if(isNaN(bal)||isNaN(pct)||isNaN(entry)||isNaN(stop)||entry===stop){
-        return alert('Please enter valid numbers for balance, risk %, entry & stop.');
+      const stop = parseFloat(document.getElementById('stop').value);
+      const commPct = parseFloat(document.getElementById('commissionPct').value) / 100;
+      // Validate
+      if (isNaN(bal) || isNaN(riskPct) || isNaN(entry) || isNaN(stop) || entry === stop) {
+        alert('Please fill out all fields with valid, non-equal entry & stop prices.');
+        return;
       }
-
-      // how many USD we risk on the price move alone
-      const atRiskPrice = bal * pct;
-
-      // per-unit risk = |entry–stop|
-      const riskPerUnit = Math.abs(entry-stop);
-
-      // how many units to risk exactly atRiskPrice
-      const units = atRiskPrice / riskPerUnit;
-
-      // total notional = units * entry
+      // Direction
+      const dir = entry < stop ? 'Long' : 'Short';
+      // Risk amount
+      const riskAmt = bal * riskPct;
+      // Price difference per unit
+      const dp = Math.abs(stop - entry);
+      // Commission multiplier per unit traded (entry + stop)
+      const commUnit = (entry + stop) * commPct;
+      // Units to trade
+      const units = riskAmt / (dp + commUnit);
+      // Notional size
       const notional = units * entry;
-
-      // commission rate (both entry & exit)
-      const feeRate = 0.0005; // 0.05%
-      const commission = notional * feeRate * 2;
-
-      // total real risk = price risk + all commissions
-      const totalRisk = atRiskPrice + commission;
-
-      // display
-      document.getElementById('atRisk').textContent    = `At-Risk (price only): $${atRiskPrice.toFixed(2)}`;
-      document.getElementById('units').textContent     = `Units: ${units.toFixed(2)}`;
-      document.getElementById('notional').textContent  = `Notional Size: $${notional.toFixed(2)}`;
-      document.getElementById('commission').textContent= `Commission (2 × 0.05%): $${commission.toFixed(2)}`;
-      document.getElementById('totalRisk').textContent = `Total At-Risk: $${totalRisk.toFixed(2)}`;
-
-      document.getElementById('result').style.display = 'block';
+      // Loss from price move
+      const priceLoss = units * dp;
+      // Total commission
+      const totalComm = units * commUnit;
+      // Total at risk (price loss + commission)
+      const totalRisk = priceLoss + totalComm;
+      // Break-even price
+      const bePrice = dir === 'Long'
+        ? (notional + totalComm) / units
+        : (notional - totalComm) / units;
+      // Render
+      const out = document.getElementById('result');
+      out.style.display = 'block';
+      out.innerHTML = `
+        <p><strong>Direction:</strong> ${dir}</p>
+        <p><strong>At-Risk:</strong> $${riskAmt.toFixed(2)}</p>
+        <p><strong>Units:</strong> ${units.toFixed(2)}</p>
+        <p><strong>Notional Size:</strong> $${notional.toFixed(2)}</p>
+        <p><strong>Price Loss:</strong> $${priceLoss.toFixed(2)}</p>
+        <p><strong>Commission:</strong> $${totalComm.toFixed(2)}</p>
+        <p><strong>Total At-Risk:</strong> $${totalRisk.toFixed(2)}</p>
+        <p><strong>Break‑Even Price:</strong> ${bePrice.toFixed(6)}</p>
+      `;
     }
   </script>
 </body>
