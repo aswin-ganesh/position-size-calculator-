@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
   <title>Position Size Calculator</title>
   <style>
     body {
@@ -20,11 +20,11 @@
       padding: 2rem;
       border-radius: 8px;
       box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-      width: 360px;
+      width: 320px;
     }
     h1 {
       margin-bottom: 1rem;
-      font-size: 1.75rem;
+      font-size: 1.5rem;
       text-align: center;
       color: #1a73e8;
     }
@@ -50,7 +50,7 @@
       border: none;
       cursor: pointer;
       transition: background 0.3s ease;
-      font-size: 1.1rem;
+      margin-top: 0.5rem;
     }
     button:hover {
       background: #1668c1;
@@ -59,10 +59,12 @@
       background: #eef3fc;
       padding: 1rem;
       border-radius: 4px;
-      margin-top: 1.5rem;
+      margin-top: 1rem;
+      text-align: left;
+      font-size: 0.95rem;
     }
     .output p {
-      margin: 0.5rem 0;
+      margin: 0.4rem 0;
       font-weight: 600;
     }
   </style>
@@ -70,79 +72,77 @@
 <body>
   <div class="container">
     <h1>Position Calculator</h1>
+
     <div class="form-group">
       <label for="balance">Account Balance (USD)</label>
-      <input id="balance" type="number" step="any" placeholder="700" />
+      <input id="balance" type="number" step="any" value="700">
     </div>
+
     <div class="form-group">
       <label for="riskPct">Risk per Trade (%)</label>
-      <input id="riskPct" type="number" step="any" placeholder="1.5" />
+      <input id="riskPct" type="number" step="any" value="1">
     </div>
+
     <div class="form-group">
       <label for="entry">Entry Price</label>
-      <input id="entry" type="number" step="any" placeholder="0.612" />
+      <input id="entry" type="number" step="any" placeholder="e.g. 0.612">
     </div>
+
     <div class="form-group">
       <label for="stop">Stop-Loss Price</label>
-      <input id="stop" type="number" step="any" placeholder="0.618" />
+      <input id="stop" type="number" step="any" placeholder="e.g. 0.618">
     </div>
+
     <button onclick="calculate()">Calculate</button>
 
     <div class="output" id="result" style="display:none;">
       <p id="atRisk"></p>
       <p id="units"></p>
       <p id="notional"></p>
-      <p id="slAmount"></p>
-      <p id="tp1"></p>
-      <p id="tp2"></p>
+      <p id="commission"></p>
+      <p id="totalRisk"></p>
     </div>
   </div>
 
   <script>
-    function calculate() {
-      const bal    = parseFloat(document.getElementById('balance').value);
-      const risk   = parseFloat(document.getElementById('riskPct').value) / 100;
-      const entry  = parseFloat(document.getElementById('entry').value);
-      const stop   = parseFloat(document.getElementById('stop').value);
+    function calculate(){
+      // grab & parse
+      const bal   = parseFloat(document.getElementById('balance').value);
+      const pct   = parseFloat(document.getElementById('riskPct').value)/100;
+      const entry = parseFloat(document.getElementById('entry').value);
+      const stop  = parseFloat(document.getElementById('stop').value);
 
-      if (
-        isNaN(bal) || bal <= 0 ||
-        isNaN(risk)|| risk <= 0 ||
-        isNaN(entry)|| entry <= 0 ||
-        isNaN(stop) || stop <= 0 ||
-        entry === stop
-      ) {
-        alert('Please enter valid, non-zero values.');
-        return;
+      // validation
+      if(isNaN(bal)||isNaN(pct)||isNaN(entry)||isNaN(stop)||entry===stop){
+        return alert('Please enter valid numbers for balance, risk %, entry & stop.');
       }
 
-      // dollar amount at risk
-      const riskAmount  = bal * risk;
-      // per-unit risk
-      const slPerUnit   = Math.abs(entry - stop);
-      // units to trade
-      const units       = riskAmount / slPerUnit;
-      // total notional = units × entry
-      const notional    = units * entry;
-      // determine long vs short for TP calc
-      const direction   = entry > stop ? 1 : -1;
-      // TP targets at ±1.5% and ±3% of entry
-      const tp1Price    = entry + direction * entry * 0.015;
-      const tp2Price    = entry + direction * entry * 0.03;
+      // how many USD we risk on the price move alone
+      const atRiskPrice = bal * pct;
 
-      // show results
-      document.getElementById('atRisk').textContent  = 
-        `At-Risk: $${riskAmount.toFixed(2)}`;
-      document.getElementById('units').textContent   = 
-        `Units: ${units.toFixed(2)}`;
-      document.getElementById('notional').textContent= 
-        `Notional Size: $${notional.toFixed(2)}`;
-      document.getElementById('slAmount').textContent= 
-        `Risk per Unit: $${slPerUnit.toFixed(6)}`;
-      document.getElementById('tp1').textContent      = 
-        `TP₁ (±1.5%): ${tp1Price.toFixed(6)}`;
-      document.getElementById('tp2').textContent      = 
-        `TP₂ (±3%): ${tp2Price.toFixed(6)}`;
+      // per-unit risk = |entry–stop|
+      const riskPerUnit = Math.abs(entry-stop);
+
+      // how many units to risk exactly atRiskPrice
+      const units = atRiskPrice / riskPerUnit;
+
+      // total notional = units * entry
+      const notional = units * entry;
+
+      // commission rate (both entry & exit)
+      const feeRate = 0.0005; // 0.05%
+      const commission = notional * feeRate * 2;
+
+      // total real risk = price risk + all commissions
+      const totalRisk = atRiskPrice + commission;
+
+      // display
+      document.getElementById('atRisk').textContent    = `At-Risk (price only): $${atRiskPrice.toFixed(2)}`;
+      document.getElementById('units').textContent     = `Units: ${units.toFixed(2)}`;
+      document.getElementById('notional').textContent  = `Notional Size: $${notional.toFixed(2)}`;
+      document.getElementById('commission').textContent= `Commission (2 × 0.05%): $${commission.toFixed(2)}`;
+      document.getElementById('totalRisk').textContent = `Total At-Risk: $${totalRisk.toFixed(2)}`;
+
       document.getElementById('result').style.display = 'block';
     }
   </script>
